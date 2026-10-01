@@ -17,6 +17,8 @@ const (
 	StateFile = "state.json"
 	// LogsDir holds one log file per app, under DirName.
 	LogsDir = "logs"
+	// SetupLog holds the output of every step and build, under LogsDir.
+	SetupLog = "setup.log"
 )
 
 // Stack lifecycle states, as written to the state file.

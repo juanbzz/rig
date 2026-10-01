@@ -39,6 +39,7 @@ preset = "postgres"
 image = "axllent/mailpit:latest"
 port  = 1025
 url   = "smtp://{{ host }}:{{ port }}"  # only host, port available here
+# command = ["server", "/data"]    # replace the image's default command
 # ready says when the container is usable. Without it, an open port is enough.
 #   ready = { log = "accessible via", occurrences = 1 }   # a regexp in its output
 #   ready = { http = "/livez" }                            # a path answering 2xx
@@ -47,7 +48,8 @@ url   = "smtp://{{ host }}:{{ port }}"  # only host, port available here
 # ── Steps ───────────────────────────────────────────────────────────────────
 # One-shot commands, run in order once services are ready and before any app
 # starts. Each runs with `sh -c` in the config's directory (or `dir`), and its
-# output is streamed. A non-zero exit stops the stack.
+# output goes to .rig/logs/setup.log (and the terminal with --verbose). A
+# non-zero exit stops the stack and quotes the step's output.
 
 [[steps]]
 name = "migrate"
@@ -65,7 +67,7 @@ env  = { GOOSE_DRIVER = "postgres", GOOSE_DBSTRING = "{{ services.db.url }}" }
 #   depends_on  apps that must be healthy before this one starts
 #   env         added to the environment rig was started with
 #
-# Output goes to .rig/logs/<app>.log; `rig up --logs` also streams it.
+# Output goes to .rig/logs/<app>.log; `rig up --verbose` also streams it.
 
 [apps.api]
 # Built once rather than `go run`, so the binary starts fast and shutdown

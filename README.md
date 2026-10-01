@@ -8,7 +8,16 @@ workspace per ticket, and rig gives each workspace a stack that doesn't collide
 with the others.
 
 ```
-$ rig run -- playwright test
+$ rig up
+http://localhost:52157
+```
+
+That is all it prints: the stack is up, and the URL is the app. rig stays
+quiet unless something fails, and then it quotes the log of whatever failed.
+`--verbose` shows the work as it happens:
+
+```
+$ rig run --verbose -- playwright test
 → service db  postgres:16-alpine
 ✓ service db  ready in 4.6s
 → step migrate
@@ -28,7 +37,8 @@ Running 12 tests using 1 worker
 ✓ stopped in 1.7s
 ```
 
-rig exits with the test command's status, so CI needs only that one line.
+rig exits with the test command's status, so CI needs only
+`rig run -- playwright test`.
 
 ## Install
 
@@ -49,13 +59,19 @@ with `RIG_INSTALL_DIR`.
 ```fish
 rig run -- playwright test   # up → run → down; exits with the command's status
 rig up                       # start, print the URL, block until Ctrl-C
-rig up --logs                # …and stream app output, prefixed by app name
 rig down                     # stop a `rig up` running in another shell
+
+rig up --verbose             # show progress, step output, and app output
 ```
 
-`rig up` prints only the URL to stdout. Progress and the summary go to
-stderr, so `rig up > url.txt &` leaves the URL in a file and the terminal
-readable. Once it is ready, `.rig/state.json` describes the whole stack.
+By default rig prints results and problems only. `rig up` writes the URL to
+stdout, `rig run` shows only the command's output, and `rig down` prints
+nothing. Errors, an app crashing under `rig run`, and processes left over
+from a rig that died uncleanly still print. What every command said goes to
+`.rig/logs/` either way. With `--verbose` (or `RIG_VERBOSE=1`), progress,
+step and build output, each app's output prefixed by its name, and a summary
+of every URL go to stderr, so stdout still carries only the result. Once the
+stack is ready, `.rig/state.json` describes it.
 
 ### What tests get
 
@@ -121,7 +137,18 @@ Presets are `postgres` (16-alpine) and `mysql` (8.4). Both use the user
 `rig`, the password `rig`, and the database `rig`, exposed as
 `{{ services.db.user }}`, `.password`, and `.database` for frameworks that
 want the parts rather than a URL. Any other image works as a generic service
-with `image`, `port`, an optional `ready` check, and a `url` template.
+with `image`, `port`, an optional `ready` check, a `url` template, and a
+`command` when the image needs arguments to start, as MinIO does:
+
+```toml
+[services.s3]
+image   = "minio/minio:latest"
+port    = 9000
+command = ["server", "/data"]
+env     = { MINIO_ROOT_USER = "rig", MINIO_ROOT_PASSWORD = "rigrigrig" }
+ready   = { http = "/minio/health/live" }
+url     = "http://{{ host }}:{{ port }}"
+```
 
 rig checks the whole file before it starts anything. An unknown key, a
 placeholder naming something that doesn't exist, or a `depends_on` cycle are
@@ -160,8 +187,9 @@ is added on top. A connection string your shell exports, such as a
 every connection variable explicitly so tests never touch a live database.
 
 **Files.** rig writes only under `.rig/`: `state.json` while a stack is up,
-and `logs/<app>.log`, which are kept after teardown for reading after a
-failure. `.rig/` gitignores itself.
+`logs/setup.log` with the output of every step and build, and
+`logs/<app>.log` for each app. Logs are kept after teardown for reading after
+a failure. `.rig/` gitignores itself.
 
 **Docker.** testcontainers doesn't read `docker context`, so when
 `DOCKER_HOST` is unset, rig resolves the selected context itself. It also
@@ -185,7 +213,7 @@ steps and apps.
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `RIG_LOG_LEVEL` | `info` | debug, info, warn, error |
-| `RIG_VERBOSE` | `false` | same as `--verbose`: debug logging, including testcontainers' |
+| `RIG_VERBOSE` | `false` | same as `--verbose`: progress, command and app output, and debug logs, including testcontainers' |
 | `RIG_INSTALL_DIR` | `~/.bin` | where `task build` installs |
 
 ## Not yet

@@ -61,12 +61,18 @@ func (e *engine) Start(ctx context.Context, name string, svc config.Service, lab
 
 	port := strconv.Itoa(svc.Port) + "/tcp"
 
-	ctr, err := testcontainers.Run(ctx, svc.Image,
+	opts := []testcontainers.ContainerCustomizer{
 		testcontainers.WithExposedPorts(port),
 		testcontainers.WithEnv(svc.Env),
 		testcontainers.WithLabels(labels),
 		testcontainers.WithWaitStrategyAndDeadline(svc.Timeout.Duration, strategies(svc, port)...),
-	)
+	}
+
+	if len(svc.Command) > 0 {
+		opts = append(opts, testcontainers.WithCmd(svc.Command...))
+	}
+
+	ctr, err := testcontainers.Run(ctx, svc.Image, opts...)
 	if err != nil {
 		// A container that started but never became ready is still there.
 		if ctr != nil {

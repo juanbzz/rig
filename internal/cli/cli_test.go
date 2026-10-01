@@ -122,7 +122,7 @@ func TestRun_PassesEnvAndExitCode(t *testing.T) {
 
 	i.True(strings.HasPrefix(stdout, "url=http://localhost:"))
 	i.True(strings.Contains(stdout, "db=postgres://rig:rig@127.0.0.1:"))
-	i.True(strings.Contains(stderr, "✓ ready"))
+	i.Equal(stderr, "") // only the command speaks
 
 	// The stack is gone afterwards.
 	_, err = stack.ReadState(root)
@@ -188,7 +188,21 @@ func TestUp_PrintsURLAndStopsOnCancel(t *testing.T) {
 
 	_, err = stack.ReadState(root)
 	i.True(errors.Is(err, stack.ErrNotRunning))
-	i.True(strings.Contains(stderr.String(), "✓ stopped"))
+	i.Equal(stderr.String(), "") // the URL on stdout is all up says
+}
+
+func TestUp_Verbose(t *testing.T) {
+	i := is.New(t)
+
+	root := project(t)
+
+	_, stderr, err := execute(context.Background(),
+		"--config", filepath.Join(root, config.FileName), "--verbose", "run", "true")
+	i.NoErr(err)
+
+	i.True(strings.Contains(stderr, "→ service db"))
+	i.True(strings.Contains(stderr, "✓ ready in"))
+	i.True(strings.Contains(stderr, "✓ stopped in"))
 }
 
 func TestDown_NothingRunning(t *testing.T) {
@@ -197,6 +211,10 @@ func TestDown_NothingRunning(t *testing.T) {
 	root := project(t)
 
 	_, stderr, err := execute(context.Background(), "--config", filepath.Join(root, config.FileName), "down")
+	i.NoErr(err)
+	i.Equal(stderr, "")
+
+	_, stderr, err = execute(context.Background(), "--config", filepath.Join(root, config.FileName), "down", "--verbose")
 	i.NoErr(err)
 	i.True(strings.Contains(stderr, "no rig running"))
 }
@@ -210,7 +228,7 @@ func TestDown_RemovesStaleState(t *testing.T) {
 	// A pid no process has: the rig that wrote it died without cleaning up.
 	i.NoErr(os.WriteFile(stack.StatePath(root), []byte(`{"pid": 2147483646, "status": "ready"}`), 0o644))
 
-	_, stderr, err := execute(context.Background(), "--config", filepath.Join(root, config.FileName), "down")
+	_, stderr, err := execute(context.Background(), "--config", filepath.Join(root, config.FileName), "down", "-v")
 	i.NoErr(err)
 	i.True(strings.Contains(stderr, "removed state left by pid 2147483646"))
 

@@ -8,6 +8,7 @@ package cli
 
 import (
 	"fmt"
+	"io"
 	"os"
 
 	"github.com/rs/zerolog"
@@ -61,7 +62,7 @@ between. Tests run against the URL; nothing uses a fixed port, so stacks in
 different workspaces run side by side.`,
 	}
 
-	root.PersistentFlags().BoolP("verbose", "v", c.env.Verbose, "enable debug logging on stderr")
+	root.PersistentFlags().BoolP("verbose", "v", c.env.Verbose, "show progress, command and app output, and debug logs on stderr")
 	root.PersistentFlags().String("log-level", c.env.LogLevel, "log level (debug, info, warn, error)")
 	root.PersistentFlags().StringP("config", "c", "", "path to .rig.toml (default: nearest one up from the current directory)")
 
@@ -80,6 +81,19 @@ different workspaces run side by side.`,
 // Execute runs the command tree.
 func (c *CLI) Execute() error {
 	return c.RootCommand().Execute()
+}
+
+// verbose reports whether rig should narrate what it does. Without it, rig
+// prints results and problems only.
+func (c *CLI) verbose() bool {
+	return c.v.GetBool("verbose")
+}
+
+// say writes a progress message, shown only with --verbose.
+func (c *CLI) say(w io.Writer, format string, args ...any) {
+	if c.verbose() {
+		fmt.Fprintf(w, format, args...)
+	}
 }
 
 // logger builds a stderr logger so stdout stays reserved for command output.

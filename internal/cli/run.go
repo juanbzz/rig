@@ -25,7 +25,8 @@ func (c *CLI) runCommand() *cobra.Command {
 		Short: "Start the stack, run a command against it, and tear it down",
 		Long: `Bring the stack up, run COMMAND with the stack's RIG_* variables in its
 environment, then tear the stack down. rig exits with the command's status,
-which makes this the form for CI and for test scripts.
+which makes this the form for CI and for test scripts. Only the command's
+output is shown unless rig fails or --verbose is given.
 
 The command sees RIG_URL (the exposed app), RIG_<APP>_URL and
 RIG_<SERVICE>_URL for everything in the stack, and RIG_STATE, the path to
@@ -38,29 +39,23 @@ RIG_<SERVICE>_URL for everything in the stack, and RIG_STATE, the path to
   rig run -- sh -c 'pytest tests/e2e && pytest tests/smoke'`,
 		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			logs, err := cmd.Flags().GetBool("logs")
-			if err != nil {
-				return err
-			}
-
-			return c.runRun(cmd.Context(), cmd.OutOrStdout(), cmd.ErrOrStderr(), args, logs)
+			return c.runRun(cmd.Context(), cmd.OutOrStdout(), cmd.ErrOrStderr(), args)
 		},
 	}
 
 	// Everything after the first non-flag argument belongs to the command, so
 	// `rig run playwright test --headed` works without the --.
 	cmd.Flags().SetInterspersed(false)
-	cmd.Flags().Bool("logs", false, "stream app output to stderr as well as .rig/logs/")
 
 	return cmd
 }
 
-func (c *CLI) runRun(ctx context.Context, stdout, stderr io.Writer, args []string, logs bool) error {
+func (c *CLI) runRun(ctx context.Context, stdout, stderr io.Writer, args []string) error {
 	if args[0] == "" {
 		return usageErrorf("run needs a command, as in: rig run -- playwright test")
 	}
 
-	st, err := c.startStack(ctx, stderr, logs)
+	st, err := c.startStack(ctx, stderr)
 	if err != nil {
 		return err
 	}

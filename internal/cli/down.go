@@ -26,7 +26,8 @@ func (c *CLI) downCommand() *cobra.Command {
 		Use:   "down",
 		Short: "Stop a running `rig up` from another shell",
 		Long: `Signal the rig process that owns this project's stack and wait for it to
-tear everything down. It is not an error when nothing is running.`,
+tear everything down. It prints nothing unless --verbose is given, and it is
+not an error when nothing is running.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			timeout, err := cmd.Flags().GetDuration("timeout")
@@ -55,7 +56,7 @@ func (c *CLI) runDown(ctx context.Context, stderr io.Writer, timeout time.Durati
 
 	st, err := stack.ReadState(root)
 	if errors.Is(err, stack.ErrNotRunning) {
-		fmt.Fprintf(stderr, "no rig running in %s\n", root)
+		c.say(stderr, "no rig running in %s\n", root)
 		return nil
 	}
 
@@ -68,7 +69,7 @@ func (c *CLI) runDown(ctx context.Context, stderr io.Writer, timeout time.Durati
 			return err
 		}
 
-		fmt.Fprintf(stderr, "no rig running in %s (removed state left by pid %d)\n", root, st.PID)
+		c.say(stderr, "no rig running in %s (removed state left by pid %d)\n", root, st.PID)
 
 		return nil
 	}
@@ -77,7 +78,7 @@ func (c *CLI) runDown(ctx context.Context, stderr io.Writer, timeout time.Durati
 		return fmt.Errorf("signalling rig (pid %d): %w", st.PID, err)
 	}
 
-	fmt.Fprintf(stderr, "→ stopping rig (pid %d)\n", st.PID)
+	c.say(stderr, "→ stopping rig (pid %d)\n", st.PID)
 
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
@@ -90,7 +91,7 @@ func (c *CLI) runDown(ctx context.Context, stderr io.Writer, timeout time.Durati
 		}
 	}
 
-	fmt.Fprintln(stderr, "✓ stopped")
+	c.say(stderr, "✓ stopped\n")
 
 	return nil
 }

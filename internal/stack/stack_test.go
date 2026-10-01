@@ -326,6 +326,9 @@ expose = "web"
 [services.db]
 preset = "postgres"
 [[steps]]
+name = "seed"
+run  = "echo seeded"
+[[steps]]
 name = "migrate"
 run  = "echo boom; exit 4"
 [apps.web]
@@ -338,10 +341,62 @@ env = { PORT = "{{ port }}" }
 
 	_, err := Up(context.Background(), cfg, options(engine, &out))
 	i.True(errors.Is(err, ErrFailed))
-	i.Equal(err.Error(), "step migrate failed: exited with status 4")
-	i.True(strings.Contains(out.String(), "boom")) // step output is streamed
+
+	// Quiet by default, so the error carries the step's own output, and only
+	// that step's: the earlier one's line is not quoted.
+	msg := err.Error()
+	i.True(strings.HasPrefix(msg, "step migrate failed: exited with status 4\n"))
+	i.True(strings.Contains(msg, "last lines of .rig/logs/setup.log:\n    boom"))
+	i.True(!strings.Contains(msg, "seeded"))
+	i.Equal(out.String(), "")
+
+	log, err := os.ReadFile(filepath.Join(cfg.Root, DirName, LogsDir, SetupLog))
+	i.NoErr(err)
+	i.True(strings.Contains(string(log), "→ step seed\nseeded\n→ step migrate\nboom\n"))
 
 	i.Equal(engine.terminatedNames(), []string{"db"})
+}
+
+func TestUp_QuietUnlessVerbose(t *testing.T) {
+	toml := `
+expose = "web"
+[[steps]]
+name = "migrate"
+run  = "echo migrating"
+[apps.web]
+run = "` + helper("serve") + `"
+env = { PORT = "{{ port }}" }
+`
+
+	t.Run("quiet", func(t *testing.T) {
+		i := is.New(t)
+
+		var out bytes.Buffer
+
+		st, err := Up(context.Background(), parse(t, toml), options(&fakeEngine{}, &out))
+		i.NoErr(err)
+		i.NoErr(st.Down(context.Background()))
+		i.Equal(out.String(), "")
+	})
+
+	t.Run("verbose", func(t *testing.T) {
+		i := is.New(t)
+
+		var out bytes.Buffer
+
+		opts := options(&fakeEngine{}, &out)
+		opts.Verbose = true
+
+		st, err := Up(context.Background(), parse(t, toml), opts)
+		i.NoErr(err)
+		i.NoErr(st.Down(context.Background()))
+
+		got := out.String()
+		i.True(strings.Contains(got, "→ step migrate\nmigrating\n"))
+		i.True(strings.Contains(got, "web │ listening on"))
+		i.True(strings.Contains(got, "✓ ready in"))
+		i.True(strings.Contains(got, "✓ stopped in"))
+	})
 }
 
 func TestUp_ServiceFails(t *testing.T) {

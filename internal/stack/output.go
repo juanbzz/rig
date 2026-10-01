@@ -92,8 +92,13 @@ func tail(path string, n int) []string {
 	}
 	defer f.Close()
 
+	return lastLines(f, n)
+}
+
+// lastLines returns up to n final lines read from r.
+func lastLines(r io.Reader, n int) []string {
 	lines := make([]string, 0, n)
-	sc := bufio.NewScanner(f)
+	sc := bufio.NewScanner(r)
 	sc.Buffer(make([]byte, 64*1024), 1024*1024)
 
 	for sc.Scan() {
@@ -105,6 +110,22 @@ func tail(path string, n int) []string {
 	}
 
 	return lines
+}
+
+// tailFrom is tail over the part of a file from offset on: one command's
+// output in a log several commands share.
+func tailFrom(path string, offset int64, n int) []string {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil
+	}
+	defer f.Close()
+
+	if _, err := f.Seek(offset, io.SeekStart); err != nil {
+		return nil
+	}
+
+	return lastLines(f, n)
 }
 
 // indent prefixes every line, for nesting output under a heading.

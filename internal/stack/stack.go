@@ -68,18 +68,23 @@ type Engine interface {
 // Options configures a stack.
 type Options struct {
 	Engine Engine
-	// Out receives progress lines and step output.
+	// Out receives warnings, and with Verbose everything else rig has to
+	// say.
 	Out io.Writer
-	// StreamLogs also copies app output to Out. It always goes to
-	// .rig/logs/<app>.log.
-	StreamLogs bool
-	Logger     zerolog.Logger
+	// Verbose adds progress lines, step and build output, and app output to
+	// Out. Without it a stack comes up silently: command output still goes
+	// to .rig/logs/, and a failure quotes the relevant log.
+	Verbose bool
+	Logger  zerolog.Logger
 }
 
 // Stack is a running stack. Down must be called once it is no longer needed.
 type Stack struct {
-	cfg    *config.Config
-	opts   Options
+	cfg  *config.Config
+	opts Options
+	// warn always reaches the user; out only does with Verbose. Both write
+	// through one syncWriter so their lines never interleave.
+	warn   *syncWriter
 	out    *syncWriter
 	tmp    string
 	scope  tmpl.Scope
@@ -94,6 +99,8 @@ type Stack struct {
 	logs       []*os.File
 
 	streams []*prefixWriter
+	// setupLog collects the output of every step and build.
+	setupLog *os.File
 
 	stopping chan struct{}
 	// crashed is buffered for every app: each watcher sends at most once, so
@@ -112,10 +119,18 @@ func Up(ctx context.Context, cfg *config.Config, opts Options) (*Stack, error) {
 		out = io.Discard
 	}
 
+	warn := &syncWriter{w: out}
+
+	progress := &syncWriter{w: io.Discard}
+	if opts.Verbose {
+		progress = warn
+	}
+
 	s := &Stack{
 		cfg:        cfg,
 		opts:       opts,
-		out:        &syncWriter{w: out},
+		warn:       warn,
+		out:        progress,
 		scope:      tmpl.Scope{},
 		ports:      map[string]int{},
 		start:      time.Now(),
@@ -179,7 +194,7 @@ func (s *Stack) warnLeftovers(prev *State) {
 	for _, name := range slices.Sorted(maps.Keys(prev.Apps)) {
 		app := prev.Apps[name]
 		if app.PID > 0 && groupAlive(app.PID) {
-			s.out.printf("! a previous rig (pid %d) did not stop cleanly; app %s may still be running "+
+			s.warn.printf("! a previous rig (pid %d) did not stop cleanly; app %s may still be running "+
 				"as process group %d on port %d\n", prev.PID, name, app.PID, app.Port)
 		}
 	}
@@ -194,6 +209,14 @@ func (s *Stack) up(ctx context.Context) error {
 	s.tmp = tmp
 	s.scope[config.VarTmp] = tmp
 	s.scope[config.VarRoot] = s.cfg.Root
+
+	setupLog, err := os.Create(filepath.Join(s.cfg.Root, DirName, LogsDir, SetupLog))
+	if err != nil {
+		return fmt.Errorf("creating setup log: %w", err)
+	}
+
+	s.setupLog = setupLog
+	s.logs = append(s.logs, setupLog)
 
 	if err := s.assignPorts(); err != nil {
 		return err
@@ -354,11 +377,29 @@ func (s *Stack) buildApp(ctx context.Context, name string) error {
 	return s.runOnce(ctx, "build "+name, build, s.cfg.Dir(app.Dir), env)
 }
 
-// runOnce runs a command to completion with its output streamed: a migration
-// or an asset build can take minutes, and a silent minute looks like a hang.
+// runOnce runs a command to completion. Its output always goes to the setup
+// log, and with Verbose to the terminal as well: a migration or an asset
+// build can take minutes, and a silent minute looks like a hang to someone
+// watching.
 func (s *Stack) runOnce(ctx context.Context, label, command, dir string, env map[string]string) error {
 	s.out.printf("→ %s\n", label)
 	s.logger.Debug().Str("run", command).Str("dir", dir).Msg("command run")
+
+	// The offset marks where this command's output starts, so a failure
+	// quotes this command and not the one before it.
+	start, err := s.setupLog.Seek(0, io.SeekCurrent)
+	if err != nil {
+		return fmt.Errorf("reading setup log: %w", err)
+	}
+
+	if _, err := fmt.Fprintf(s.setupLog, "→ %s\n", label); err != nil {
+		return fmt.Errorf("writing setup log: %w", err)
+	}
+
+	var w io.Writer = s.setupLog
+	if s.opts.Verbose {
+		w = io.MultiWriter(s.setupLog, s.out)
+	}
 
 	began := time.Now()
 
@@ -366,8 +407,8 @@ func (s *Stack) runOnce(ctx context.Context, label, command, dir string, env map
 		command:   command,
 		dir:       dir,
 		env:       environ(env),
-		stdout:    s.out,
-		stderr:    s.out,
+		stdout:    w,
+		stderr:    w,
 		waitDelay: _stopGrace,
 	})
 	if err != nil {
@@ -385,7 +426,8 @@ func (s *Stack) runOnce(ctx context.Context, label, command, dir string, env map
 	}
 
 	if err := p.Err(); err != nil {
-		return fmt.Errorf("%s %w: %s", label, ErrFailed, exitStatus(err))
+		return fmt.Errorf("%s %w: %s%s", label, ErrFailed, exitStatus(err),
+			s.excerpt(s.setupLog.Name(), tailFrom(s.setupLog.Name(), start+int64(len("→ "+label+"\n")), _logTail)))
 	}
 
 	s.out.printf("✓ %s  done in %s\n", label, since(began))
@@ -457,7 +499,7 @@ func (s *Stack) startApp(ctx context.Context, name string, healthy map[string]ch
 	// Without streaming, the process writes straight to the file, so nothing
 	// in rig sits between it and its output.
 	var w io.Writer = logFile
-	if s.opts.StreamLogs {
+	if s.opts.Verbose {
 		stream := newPrefixWriter(s.out, name+" │ ")
 		w = io.MultiWriter(logFile, stream)
 
@@ -677,7 +719,12 @@ func (s *Stack) down(ctx context.Context) error {
 
 // logExcerpt quotes the end of an app's log for an error message.
 func (s *Stack) logExcerpt(path string) string {
-	lines := tail(path, _logTail)
+	return s.excerpt(path, tail(path, _logTail))
+}
+
+// excerpt formats log lines for an error message, naming the file they came
+// from so the whole log is a step away.
+func (s *Stack) excerpt(path string, lines []string) string {
 	if len(lines) == 0 {
 		return ""
 	}

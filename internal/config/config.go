@@ -110,12 +110,15 @@ type Ready struct {
 // Service is a container rig owns for the life of the stack: an image with a
 // port and a ready check. A preset fills in all of it for a known image.
 type Service struct {
-	Preset  string            `toml:"preset"`
-	Image   string            `toml:"image"`
-	Port    int               `toml:"port"`
-	Env     map[string]string `toml:"env"`
-	Ready   Ready             `toml:"ready"`
-	Timeout Duration          `toml:"timeout"`
+	Preset string            `toml:"preset"`
+	Image  string            `toml:"image"`
+	Port   int               `toml:"port"`
+	Env    map[string]string `toml:"env"`
+	// Command replaces the image's default command, for images like MinIO
+	// that need arguments to start serving.
+	Command []string `toml:"command"`
+	Ready   Ready    `toml:"ready"`
+	Timeout Duration `toml:"timeout"`
 	// URL is how the service is reached, built from {{ host }} and
 	// {{ port }}, plus the preset's own variables such as {{ user }}.
 	URL string `toml:"url"`

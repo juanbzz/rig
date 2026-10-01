@@ -19,8 +19,9 @@ expose = "web"
 preset = "postgres"
 
 [services.mail]
-image = "axllent/mailpit:latest"
-port  = 1025
+image   = "axllent/mailpit:latest"
+port    = 1025
+command = ["--smtp-auth-accept-any"]
 ready = { http = "/livez" }
 url   = "smtp://{{ host }}:{{ port }}"
 
@@ -60,8 +61,11 @@ func TestParse_Startapp(t *testing.T) {
 	i.Equal(db.Vars["password"], "rig")
 	i.Equal(db.Timeout.Duration, DefaultServiceTimeout)
 
+	i.Equal(len(db.Command), 0) // the image's own command
+
 	mail := cfg.Services["mail"]
 	i.Equal(mail.Ready.HTTP, "/livez")
+	i.Equal(mail.Command, []string{"--smtp-auth-accept-any"})
 	i.Equal(mail.URL, "smtp://{{ host }}:{{ port }}")
 
 	api := cfg.Apps["api"]
