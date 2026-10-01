@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -550,4 +551,74 @@ func deadPID(t *testing.T) int {
 	<-p.Done()
 
 	return p.PID()
+}
+
+// recorder is a Reporter that keeps every status it is given.
+type recorder struct {
+	mu       sync.Mutex
+	statuses []string
+}
+
+func (r *recorder) StepStarted(desc string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	r.statuses = append(r.statuses, desc)
+}
+
+func (r *recorder) all() []string {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	return append([]string(nil), r.statuses...)
+}
+
+func TestUp_ReportsEachPhase(t *testing.T) {
+	i := is.New(t)
+
+	cfg := parse(t, `
+expose = "web"
+[services.db]
+preset = "postgres"
+[services.s3]
+image = "minio/minio"
+port  = 9000
+[[steps]]
+name = "migrate"
+run  = "true"
+[apps.api]
+build = "true"
+run   = "`+helper("serve")+`"
+env   = { PORT = "{{ port }}" }
+[apps.web]
+run        = "`+helper("serve")+`"
+env        = { PORT = "{{ port }}" }
+depends_on = ["api"]
+`)
+
+	rec := &recorder{}
+	var out bytes.Buffer
+
+	opts := options(&fakeEngine{}, &out)
+	opts.Reporter = rec
+
+	st, err := Up(context.Background(), cfg, opts)
+	i.NoErr(err)
+	i.NoErr(st.Down(context.Background()))
+
+	got := rec.all()
+
+	// Parallel phases open with everything they wait on, then narrow.
+	i.Equal(got[0], "starting db, s3")
+	i.True(slices.Contains(got, "step migrate"))
+	i.True(slices.Contains(got, "build api"))
+	i.True(slices.Contains(got, "starting api, web"))
+	i.True(slices.Contains(got, "starting web")) // web outlasts api, which it waits on
+	i.Equal(got[len(got)-1], "stopping")
+
+	// Phases come in order: services, steps, builds, apps.
+	i.True(slices.Index(got, "step migrate") < slices.Index(got, "build api"))
+	i.True(slices.Index(got, "build api") < slices.Index(got, "starting api, web"))
+
+	i.Equal(out.String(), "") // the reporter is for a quiet run
 }

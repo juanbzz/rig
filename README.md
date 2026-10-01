@@ -66,7 +66,9 @@ rig up --verbose             # show progress, step output, and app output
 
 By default rig prints results and problems only. `rig up` writes the URL to
 stdout, `rig run` shows only the command's output, and `rig down` prints
-nothing. Errors, an app crashing under `rig run`, and processes left over
+nothing. On a terminal, a one-line spinner on stderr says what rig is
+waiting on ("starting db, s3", "step migrate", "stopping") and erases itself
+when done; piped, in a file, or in CI, there is no spinner. Errors, an app crashing under `rig run`, and processes left over
 from a rig that died uncleanly still print. What every command said goes to
 `.rig/logs/` either way. With `--verbose` (or `RIG_VERBOSE=1`), progress,
 step and build output, each app's output prefixed by its name, and a summary

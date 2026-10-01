@@ -18,6 +18,7 @@ import (
 	"github.com/j0lvera/rig/internal/config"
 	"github.com/j0lvera/rig/internal/container"
 	"github.com/j0lvera/rig/internal/stack"
+	"github.com/j0lvera/rig/internal/ui"
 )
 
 // _version is overridden at build time via -ldflags.
@@ -87,6 +88,36 @@ func (c *CLI) Execute() error {
 // prints results and problems only.
 func (c *CLI) verbose() bool {
 	return c.v.GetBool("verbose")
+}
+
+// spinner returns a spinner for a quiet run on a terminal, so a stack that
+// takes twenty seconds to come up does not look hung. It is nil with
+// --verbose, whose progress lines say the same, and when stderr is not an
+// interactive terminal: a pipe, a file, CI.
+func (c *CLI) spinner(stderr io.Writer) *ui.Spinner {
+	if c.verbose() {
+		return nil
+	}
+
+	f, ok := stderr.(*os.File)
+	if !ok {
+		return nil
+	}
+
+	width, ok := ui.Interactive(f)
+	if !ok {
+		return nil
+	}
+
+	return ui.NewSpinner(f, width)
+}
+
+// stopSpinner erases the spinner's line, if there is one, before anything
+// else is printed.
+func stopSpinner(sp *ui.Spinner) {
+	if sp != nil {
+		sp.Stop()
+	}
 }
 
 // say writes a progress message, shown only with --verbose.

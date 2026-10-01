@@ -80,6 +80,11 @@ func (c *CLI) runDown(ctx context.Context, stderr io.Writer, timeout time.Durati
 
 	c.say(stderr, "→ stopping rig (pid %d)\n", st.PID)
 
+	if sp := c.spinner(stderr); sp != nil {
+		sp.StepStarted(fmt.Sprintf("stopping rig (pid %d)", st.PID))
+		defer sp.Stop()
+	}
+
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 

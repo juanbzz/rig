@@ -55,16 +55,23 @@ func (c *CLI) runRun(ctx context.Context, stdout, stderr io.Writer, args []strin
 		return usageErrorf("run needs a command, as in: rig run -- playwright test")
 	}
 
-	st, err := c.startStack(ctx, stderr)
+	sp := c.spinner(stderr)
+
+	st, err := c.startStack(ctx, stderr, sp)
+	stopSpinner(sp)
+
 	if err != nil {
 		return err
 	}
 
 	runErr := c.runAgainst(ctx, stdout, stderr, args, st.Env(), st.Crashed())
 
+	downErr := st.Down(context.WithoutCancel(ctx))
+	stopSpinner(sp)
+
 	// The command's status is returned as is when teardown succeeds, so rig
 	// exits with it silently.
-	if downErr := st.Down(context.WithoutCancel(ctx)); downErr != nil {
+	if downErr != nil {
 		return errors.Join(runErr, downErr)
 	}
 

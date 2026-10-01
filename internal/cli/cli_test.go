@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"os"
@@ -283,4 +284,36 @@ func (s *syncBuffer) String() string {
 	defer s.mu.Unlock()
 
 	return s.b.String()
+}
+
+// TestSpinner_OnlyOnATerminal pins down when there is no spinner: its escape
+// codes must never reach a pipe, a file, or a test buffer, and --verbose
+// prints progress lines instead.
+func TestSpinner_OnlyOnATerminal(t *testing.T) {
+	file, err := os.Create(filepath.Join(t.TempDir(), "stderr"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer file.Close()
+
+	tests := []struct {
+		name    string
+		stderr  io.Writer
+		verbose bool
+	}{
+		{name: "verbose", stderr: os.Stderr, verbose: true},
+		{name: "not a file", stderr: &bytes.Buffer{}},
+		{name: "a file, not a terminal", stderr: file},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			i := is.New(t)
+
+			c := newCLI()
+			c.v.Set("verbose", tt.verbose)
+
+			i.True(c.spinner(tt.stderr) == nil)
+		})
+	}
 }

@@ -781,3 +781,8 @@ http-client.private.env.json
 .envrc
 .beads
 .claude
+
+# Beads / Dolt files (added by bd init)
+.dolt/
+*.db
+.beads-credential-key

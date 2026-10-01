@@ -19,6 +19,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -65,6 +66,12 @@ type Engine interface {
 	Start(ctx context.Context, name string, svc config.Service, labels map[string]string) (Container, error)
 }
 
+// Reporter shows what a stack is doing while it works, such as a spinner on
+// a terminal. StepStarted replaces the previous status.
+type Reporter interface {
+	StepStarted(desc string)
+}
+
 // Options configures a stack.
 type Options struct {
 	Engine Engine
@@ -75,7 +82,10 @@ type Options struct {
 	// Out. Without it a stack comes up silently: command output still goes
 	// to .rig/logs/, and a failure quotes the relevant log.
 	Verbose bool
-	Logger  zerolog.Logger
+	// Reporter, when set, is told each phase as it begins. It is for a
+	// quiet run: with Verbose, the progress lines say the same.
+	Reporter Reporter
+	Logger   zerolog.Logger
 }
 
 // Stack is a running stack. Down must be called once it is no longer needed.
@@ -279,10 +289,21 @@ func (s *Stack) assignPorts() error {
 // startServices starts every container in parallel. They depend on nothing
 // but their images, and pulling and booting them is most of a cold start.
 func (s *Stack) startServices(ctx context.Context) error {
+	names := s.cfg.ServiceNames()
+	starting := s.track("starting", names)
+
 	g, ctx := newGroup(ctx)
 
-	for _, name := range s.cfg.ServiceNames() {
-		g.Go(func() error { return s.startService(ctx, name) })
+	for _, name := range names {
+		g.Go(func() error {
+			if err := s.startService(ctx, name); err != nil {
+				return err
+			}
+
+			starting.done(name)
+
+			return nil
+		})
 	}
 
 	return g.Wait()
@@ -383,6 +404,7 @@ func (s *Stack) buildApp(ctx context.Context, name string) error {
 // watching.
 func (s *Stack) runOnce(ctx context.Context, label, command, dir string, env map[string]string) error {
 	s.out.printf("→ %s\n", label)
+	s.status(label)
 	s.logger.Debug().Str("run", command).Str("dir", dir).Msg("command run")
 
 	// The offset marks where this command's output starts, so a failure
@@ -443,15 +465,19 @@ func (s *Stack) startApps(ctx context.Context) error {
 		healthy[name] = make(chan struct{})
 	}
 
+	names := s.cfg.AppNames()
+	starting := s.track("starting", names)
+
 	g, ctx := newGroup(ctx)
 
-	for _, name := range s.cfg.AppNames() {
+	for _, name := range names {
 		g.Go(func() error {
 			if err := s.startApp(ctx, name, healthy); err != nil {
 				return err
 			}
 
 			close(healthy[name])
+			starting.done(name)
 
 			return nil
 		})
@@ -551,6 +577,53 @@ func (s *Stack) startApp(ctx context.Context, name string, healthy map[string]ch
 	return nil
 }
 
+// status tells the reporter, if any, what the stack is doing now.
+func (s *Stack) status(desc string) {
+	if s.opts.Reporter != nil {
+		s.opts.Reporter.StepStarted(desc)
+	}
+}
+
+// pending reports a phase whose parts run at once, such as services
+// starting in parallel, as the list of parts still going: "starting db, s3"
+// becomes "starting s3" when db is ready. The status of a parallel phase is
+// what it still waits on, not whichever part happened to start last.
+type pending struct {
+	report func(desc string)
+	verb   string
+
+	mu    sync.Mutex
+	names []string
+}
+
+// track starts reporting a parallel phase over names.
+func (s *Stack) track(verb string, names []string) *pending {
+	p := &pending{report: s.status, verb: verb, names: slices.Clone(names)}
+
+	p.mu.Lock()
+	p.reportLocked()
+	p.mu.Unlock()
+
+	return p
+}
+
+// done marks one part finished.
+func (p *pending) done(name string) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	p.names = slices.DeleteFunc(p.names, func(n string) bool { return n == name })
+	p.reportLocked()
+}
+
+// reportLocked reports with p.mu held, so two parts finishing at once
+// cannot leave the older list on screen.
+func (p *pending) reportLocked() {
+	if len(p.names) > 0 {
+		p.report(p.verb + " " + strings.Join(p.names, ", "))
+	}
+}
+
 // appScope is the stack-wide scope plus the app's own {{ port }}.
 func (s *Stack) appScope(name string) tmpl.Scope {
 	return s.scope.With(tmpl.Scope{config.VarPort: strconv.Itoa(s.ports[name])})
@@ -648,6 +721,7 @@ func (s *Stack) down(ctx context.Context) error {
 
 	if len(apps)+len(containers) > 0 {
 		s.out.printf("→ stopping\n")
+		s.status("stopping")
 	}
 
 	// Apps first: they hold connections to the services, and an app that

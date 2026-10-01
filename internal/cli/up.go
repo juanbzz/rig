@@ -14,6 +14,7 @@ import (
 
 	"github.com/j0lvera/rig/internal/config"
 	"github.com/j0lvera/rig/internal/stack"
+	"github.com/j0lvera/rig/internal/ui"
 )
 
 func (c *CLI) upCommand() *cobra.Command {
@@ -45,7 +46,11 @@ on its own, the stack comes down and rig exits non-zero.`,
 }
 
 func (c *CLI) runUp(ctx context.Context, stdout, stderr io.Writer) error {
-	st, err := c.startStack(ctx, stderr)
+	sp := c.spinner(stderr)
+
+	st, err := c.startStack(ctx, stderr, sp)
+	stopSpinner(sp)
+
 	if err != nil {
 		return err
 	}
@@ -68,11 +73,15 @@ func (c *CLI) runUp(ctx context.Context, stdout, stderr io.Writer) error {
 	case crashed = <-st.Crashed():
 	}
 
-	return errors.Join(crashed, st.Down(context.WithoutCancel(ctx)))
+	downErr := st.Down(context.WithoutCancel(ctx))
+	stopSpinner(sp)
+
+	return errors.Join(crashed, downErr)
 }
 
-// startStack loads the config and brings the stack up.
-func (c *CLI) startStack(ctx context.Context, stderr io.Writer) (*stack.Stack, error) {
+// startStack loads the config and brings the stack up, reporting each phase
+// to sp when there is one.
+func (c *CLI) startStack(ctx context.Context, stderr io.Writer, sp *ui.Spinner) (*stack.Stack, error) {
 	cfg, err := c.loadConfig()
 	if err != nil {
 		return nil, err
@@ -80,12 +89,20 @@ func (c *CLI) startStack(ctx context.Context, stderr io.Writer) (*stack.Stack, e
 
 	logger := c.logger()
 
-	return stack.Up(ctx, cfg, stack.Options{
+	opts := stack.Options{
 		Engine:  c.engine(logger),
 		Out:     stderr,
 		Verbose: c.verbose(),
 		Logger:  logger,
-	})
+	}
+
+	// Set only when there is one: a nil *ui.Spinner in the interface would
+	// not compare equal to nil, and the stack would call through it.
+	if sp != nil {
+		opts.Reporter = sp
+	}
+
+	return stack.Up(ctx, cfg, opts)
 }
 
 // printSummary lists where everything in the stack is reachable.

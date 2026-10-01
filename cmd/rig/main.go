@@ -11,6 +11,7 @@ import (
 
 	"github.com/j0lvera/rig/internal/cli"
 	"github.com/j0lvera/rig/internal/config"
+	"github.com/j0lvera/rig/internal/ui"
 )
 
 func main() {
@@ -28,13 +29,17 @@ func main() {
 }
 
 func run() error {
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-	// The first signal starts an orderly teardown. Restoring the default
-	// handlers then lets a second Ctrl-C kill rig outright; Ryuk still
-	// removes the containers.
-	context.AfterFunc(ctx, stop)
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, os.Interrupt, syscall.SIGTERM)
+	defer signal.Stop(sigs)
+
+	done := make(chan struct{})
+	defer close(done)
+
+	go handleSignals(sigs, cancel, done, forceQuit)
 
 	env, err := config.Env{}.LoadEnv()
 	if err != nil {
@@ -42,4 +47,42 @@ func run() error {
 	}
 
 	return cli.New(env).RootCommand().ExecuteContext(ctx)
+}
+
+// handleSignals turns the first signal into a cancelled context, which starts
+// an orderly teardown, and hands a second one to quit, for someone who will
+// not wait for it. It returns when done closes.
+func handleSignals(sigs <-chan os.Signal, cancel context.CancelFunc, done <-chan struct{}, quit func(os.Signal)) {
+	select {
+	case <-sigs:
+		cancel()
+	case <-done:
+		return
+	}
+
+	select {
+	case sig := <-sigs:
+		quit(sig)
+	case <-done:
+	}
+}
+
+// forceQuit ends rig the way sig would have without a handler, so the exit
+// status still says which signal it was. A spinner may have hidden the cursor,
+// and a process killed mid-spin cannot show it again, so that comes first.
+// Ryuk still removes the containers; app processes may be left behind, and
+// the next `rig up` warns about them.
+func forceQuit(sig os.Signal) {
+	ui.RestoreCursor(os.Stderr)
+
+	signal.Reset()
+
+	s, ok := sig.(syscall.Signal)
+	if !ok {
+		s = syscall.SIGKILL
+	}
+
+	// If the signal cannot be delivered to rig itself, there is nothing left
+	// to try; the orderly teardown carries on.
+	_ = syscall.Kill(os.Getpid(), s)
 }
