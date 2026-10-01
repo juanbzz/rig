@@ -1,0 +1,81 @@
+# .rig.toml — a disposable stack for integration tests.
+#
+# This is startapp's e2e harness: postgres, a goose migration, a Go API built
+# once, and the Vite dashboard in front of it. Copy it to the repository root
+# as .rig.toml and adjust the commands.
+#
+# Any value can use {{ name }} placeholders. They are plain substitution, with
+# no expressions:
+#
+#   {{ services.<name>.url }}   how to reach a service, e.g. postgres://…
+#   {{ services.<name>.host }}  …and its parts
+#   {{ services.<name>.port }}
+#   {{ services.<name>.user }}  preset extras: user, password, database
+#   {{ apps.<name>.url }}       http://localhost:<port>
+#   {{ apps.<name>.port }}
+#   {{ apps.<name>.host }}
+#   {{ port }}                  inside an app: its own port
+#   {{ tmp }}                   a temp dir that lives as long as the stack
+#   {{ root }}                  the directory holding this file
+#
+# Every app's port is assigned before anything starts, so any app can refer to
+# any other, in either direction.
+
+# The app whose URL is the result: RIG_URL, and what `rig up` prints.
+expose = "web"
+
+# ── Services ────────────────────────────────────────────────────────────────
+# Containers rig owns for the life of the stack, each on a random host port.
+# Presets: postgres, mysql. A preset fills in the image, port, credentials
+# (rig/rig, database rig), ready check, and url; any of them can be overridden.
+
+[services.db]
+preset = "postgres"
+# image = "postgres:17-alpine"     # override the preset's image
+# env   = { TZ = "UTC" }           # merged over the preset's env
+
+# Anything else is a generic image: image and port are required.
+[services.mail]
+image = "axllent/mailpit:latest"
+port  = 1025
+url   = "smtp://{{ host }}:{{ port }}"  # only host, port available here
+# ready says when the container is usable. Without it, an open port is enough.
+#   ready = { log = "accessible via", occurrences = 1 }   # a regexp in its output
+#   ready = { http = "/livez" }                            # a path answering 2xx
+# timeout = "2m"
+
+# ── Steps ───────────────────────────────────────────────────────────────────
+# One-shot commands, run in order once services are ready and before any app
+# starts. Each runs with `sh -c` in the config's directory (or `dir`), and its
+# output is streamed. A non-zero exit stops the stack.
+
+[[steps]]
+name = "migrate"
+run  = "goose -dir apps/api/internal/db/migrations up"
+env  = { GOOSE_DRIVER = "postgres", GOOSE_DBSTRING = "{{ services.db.url }}" }
+
+# ── Apps ────────────────────────────────────────────────────────────────────
+# The project's own code, as host processes. Each one:
+#   build       runs once, to completion, before any app starts (optional)
+#   run         starts the app; it must keep running
+#   dir         where both run, relative to this file
+#   health      an HTTP path that must answer below 400; without it, an open
+#               port is enough
+#   timeout     how long the app gets to become healthy (default 60s)
+#   depends_on  apps that must be healthy before this one starts
+#   env         added to the environment rig was started with
+#
+# Output goes to .rig/logs/<app>.log; `rig up --logs` also streams it.
+
+[apps.api]
+# Built once rather than `go run`, so the binary starts fast and shutdown
+# signals reach the server itself.
+build  = "cd apps/api && go build -o {{ tmp }}/api ./cmd/main"
+run    = "{{ tmp }}/api"
+health = "/health"
+env    = { DATABASE_URL = "{{ services.db.url }}", PORT = "{{ port }}", ORIGINS = "{{ apps.web.url }}", SMTP_URL = "{{ services.mail.url }}" }
+
+[apps.web]
+run        = "bun run --filter @startapp/dash dev --port {{ port }} --strictPort"
+env        = { VITE_API_PROXY_TARGET = "{{ apps.api.url }}" }
+depends_on = ["api"]

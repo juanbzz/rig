@@ -1,0 +1,97 @@
+version: '3'
+
+vars:
+  BINARY: rig
+  PKG: ./cmd/rig
+  INSTALL_DIR:
+    sh: echo "${RIG_INSTALL_DIR:-$HOME/.bin}"
+  VERSION:
+    sh: git describe --tags --always --dirty 2>/dev/null || echo dev
+
+tasks:
+  default:
+    desc: Build and install the binary
+    cmds:
+      - task: build
+
+  build:
+    desc: Build rig into {{.INSTALL_DIR}}
+    cmds:
+      - mkdir -p "{{.INSTALL_DIR}}"
+      - go build -trimpath -ldflags "-s -w -X github.com/j0lvera/rig/internal/cli._version={{.VERSION}}" -o "{{.INSTALL_DIR}}/{{.BINARY}}" {{.PKG}}
+      - '{{.INSTALL_DIR}}/{{.BINARY}} --version'
+    sources:
+      - '**/*.go'
+      - go.mod
+      - go.sum
+    generates:
+      - '{{.INSTALL_DIR}}/{{.BINARY}}'
+
+  install:
+    desc: Alias for build
+    cmds:
+      - task: build
+
+  run:
+    desc: Run rig from source (task run -- up)
+    cmds:
+      - go run {{.PKG}} {{.CLI_ARGS}}
+
+  test:
+    desc: Run the test suite
+    cmds:
+      - go test ./...
+
+  test:v:
+    desc: Run the test suite verbosely
+    cmds:
+      - go test -v ./...
+
+  cover:
+    desc: Report test coverage per package
+    cmds:
+      - go test -cover ./...
+
+  vet:
+    desc: Run go vet
+    cmds:
+      - go vet ./...
+
+  fmt:
+    desc: Format the source tree
+    cmds:
+      - gofmt -s -w .
+
+  lint:
+    desc: Run golangci-lint (brew install golangci-lint)
+    cmds:
+      - golangci-lint run ./...
+
+  tidy:
+    desc: Tidy module requirements
+    cmds:
+      - go mod tidy
+
+  check:
+    desc: Format, vet, and test
+    cmds:
+      - task: fmt
+      - task: vet
+      - task: test
+
+  path:
+    desc: Print the fish command that puts {{.INSTALL_DIR}} on PATH for good
+    silent: true
+    cmds:
+      # No -g: the default universal variable is what persists across sessions.
+      - echo 'fish_add_path -m {{.INSTALL_DIR}}'
+
+  clean:
+    desc: Remove the installed binary
+    cmds:
+      - rm -f "{{.INSTALL_DIR}}/{{.BINARY}}"
+
+  uninstall:
+    desc: Alias for clean
+    cmds:
+      - task: clean

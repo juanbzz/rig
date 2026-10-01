@@ -1,0 +1,103 @@
+{
+  "version": 1,
+  "skills": {
+    "be-objective": {
+      "source": "ssh://git@git.box2:2222/juan/skills.git",
+      "sourceUrl": "ssh://git@git.box2:2222/juan/skills.git",
+      "sourceType": "git",
+      "skillPath": "skills/be-objective/SKILL.md",
+      "computedHash": "f1d1743b52d3280f4b4f972582cbffdb01d16a8212a396af49666675a9c0a691"
+    },
+    "cli": {
+      "source": "ssh://git@git.box2:2222/juan/skills.git",
+      "sourceUrl": "ssh://git@git.box2:2222/juan/skills.git",
+      "sourceType": "git",
+      "skillPath": "skills/cli/SKILL.md",
+      "computedHash": "9004610b0baa831bd2f7cfd85a1818a9e727ae518b34a95bfdcedf963a149f3c"
+    },
+    "dora": {
+      "source": "ssh://git@git.box2:2222/juan/skills.git",
+      "sourceUrl": "ssh://git@git.box2:2222/juan/skills.git",
+      "sourceType": "git",
+      "skillPath": "skills/dora/SKILL.md",
+      "computedHash": "810d304011b02822b08af43c330ce6f79c34ed7f2be34c5f4dd329273e6c2b20"
+    },
+    "feature-video": {
+      "source": "ssh://git@git.box2:2222/juan/skills.git",
+      "sourceUrl": "ssh://git@git.box2:2222/juan/skills.git",
+      "sourceType": "git",
+      "skillPath": "skills/feature-video/SKILL.md",
+      "computedHash": "e7a65a52e0b51dbaa99f02923487ee8f58a1982fde8004a46237f87bf3066879"
+    },
+    "go": {
+      "source": "ssh://git@git.box2:2222/juan/skills.git",
+      "sourceUrl": "ssh://git@git.box2:2222/juan/skills.git",
+      "sourceType": "git",
+      "skillPath": "skills/go/SKILL.md",
+      "computedHash": "d97d62579b395aacc87259eab4332cdc6e9775491566fdda19e9f35e7847baf2"
+    },
+    "grillstorm": {
+      "source": "ssh://git@git.box2:2222/juan/skills.git",
+      "sourceUrl": "ssh://git@git.box2:2222/juan/skills.git",
+      "sourceType": "git",
+      "skillPath": "skills/grillstorm/SKILL.md",
+      "computedHash": "244960c2f1a64142bbcc19eea750f0c28446d30ea9c4e6fc54db80c48c00a87e"
+    },
+    "postgres": {
+      "source": "ssh://git@git.box2:2222/juan/skills.git",
+      "sourceUrl": "ssh://git@git.box2:2222/juan/skills.git",
+      "sourceType": "git",
+      "skillPath": "skills/postgres/SKILL.md",
+      "computedHash": "1c6fa64181b687cb520e5fd2a5977af275d0ca2276850f08d8cf14cf534816b9"
+    },
+    "pr-screenshots": {
+      "source": "ssh://git@git.box2:2222/juan/skills.git",
+      "sourceUrl": "ssh://git@git.box2:2222/juan/skills.git",
+      "sourceType": "git",
+      "skillPath": "skills/pr-screenshots/SKILL.md",
+      "computedHash": "66b2ccf92daca3786dfd377ffca5e305ed635546f271f7721613ecf43462fa97"
+    },
+    "prose": {
+      "source": "ssh://git@git.box2:2222/juan/skills.git",
+      "sourceUrl": "ssh://git@git.box2:2222/juan/skills.git",
+      "sourceType": "git",
+      "skillPath": "skills/prose/SKILL.md",
+      "computedHash": "18c24ff8037c5d104846876a85f779532e09042f92c2073c27ea56661ba3b930"
+    },
+    "react": {
+      "source": "ssh://git@git.box2:2222/juan/skills.git",
+      "sourceUrl": "ssh://git@git.box2:2222/juan/skills.git",
+      "sourceType": "git",
+      "skillPath": "skills/react/SKILL.md",
+      "computedHash": "856dd133ef1047ffe44299e59fe29564b2518bc2c30d671019f7102a9605e85f"
+    },
+    "to-beads": {
+      "source": "ssh://git@git.box2:2222/juan/skills.git",
+      "sourceUrl": "ssh://git@git.box2:2222/juan/skills.git",
+      "sourceType": "git",
+      "skillPath": "skills/to-beads/SKILL.md",
+      "computedHash": "8ee9b2a4c5d6a08ad9e316b3b3f2e5ddef61380aede2055b18b1848efd719dea"
+    },
+    "write-commit": {
+      "source": "ssh://git@git.box2:2222/juan/skills.git",
+      "sourceUrl": "ssh://git@git.box2:2222/juan/skills.git",
+      "sourceType": "git",
+      "skillPath": "skills/write-commit/SKILL.md",
+      "computedHash": "ab4fb2b3259209056ad486ea7a9b80198696fa6f0a611db1c37e6796108b80f1"
+    },
+    "write-ticket": {
+      "source": "ssh://git@git.box2:2222/juan/skills.git",
+      "sourceUrl": "ssh://git@git.box2:2222/juan/skills.git",
+      "sourceType": "git",
+      "skillPath": "skills/write-ticket/SKILL.md",
+      "computedHash": "a25e7bc68e4bf57aa9100202dfd12fc8968897151a7b7cf7721408587d60722f"
+    },
+    "write-ticket-bug": {
+      "source": "ssh://git@git.box2:2222/juan/skills.git",
+      "sourceUrl": "ssh://git@git.box2:2222/juan/skills.git",
+      "sourceType": "git",
+      "skillPath": "skills/write-ticket-bug/SKILL.md",
+      "computedHash": "fcd45c6397d1c8437b93b0f1c8d9cb4ed25ba030af2546fb7833f23c86d93941"
+    }
+  }
+}
