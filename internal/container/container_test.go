@@ -11,7 +11,7 @@ import (
 	"github.com/matryer/is"
 	"github.com/rs/zerolog"
 
-	"github.com/j0lvera/rig/internal/config"
+	"github.com/juanbzz/rig/internal/config"
 )
 
 // TestEngine_Presets starts each preset in real Docker. It is the check that a

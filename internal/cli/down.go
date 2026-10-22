@@ -11,7 +11,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/j0lvera/rig/internal/stack"
+	"github.com/juanbzz/rig/internal/stack"
 )
 
 // _downPoll is how often `rig down` checks whether the stack has stopped.

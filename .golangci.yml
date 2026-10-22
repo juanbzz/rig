@@ -1,28 +1,37 @@
+version: "2"
+
 linters:
   enable:
     - errcheck       # unchecked errors
     - govet          # go vet issues
-    - staticcheck    # comprehensive static analysis
+    - staticcheck    # comprehensive static analysis, gosimple included
     - unused         # unused code
-    - gosimple       # simplifications
     - ineffassign    # useless assignments
-    - goimports      # import ordering
     - misspell       # spelling in comments/strings
     - errorlint      # errors.Is/As correctness, %w wrapping
     - unconvert      # unnecessary type conversions
     - gocritic       # opinionated but useful diagnostics
+  settings:
+    errorlint:
+      errorf: true
+      asserts: true
+      comparison: true
+    gocritic:
+      enabled-tags:
+        - diagnostic
+        - style
+  exclusions:
+    # v1's default exclusions: unchecked Close, Fprint*, Setenv and the like.
+    presets:
+      - std-error-handling
 
-linters-settings:
-  goimports:
-    local-prefixes: github.com/j0lvera
-  errorlint:
-    errorf: true
-    asserts: true
-    comparison: true
-  gocritic:
-    enabled-tags:
-      - diagnostic
-      - style
+formatters:
+  enable:
+    - goimports      # import ordering
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/juanbzz
 
 issues:
   max-issues-per-linter: 0

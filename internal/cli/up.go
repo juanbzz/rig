@@ -12,9 +12,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/j0lvera/rig/internal/config"
-	"github.com/j0lvera/rig/internal/stack"
-	"github.com/j0lvera/rig/internal/ui"
+	"github.com/juanbzz/rig/internal/config"
+	"github.com/juanbzz/rig/internal/stack"
+	"github.com/juanbzz/rig/internal/ui"
 )
 
 func (c *CLI) upCommand() *cobra.Command {

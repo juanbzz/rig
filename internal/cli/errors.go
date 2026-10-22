@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/j0lvera/rig/internal/config"
+	"github.com/juanbzz/rig/internal/config"
 )
 
 // Exit codes follow the UNIX convention: 1 for a failed operation, 2 for a

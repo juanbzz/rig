@@ -1,4 +1,4 @@
-module github.com/j0lvera/rig
+module github.com/juanbzz/rig
 
 go 1.25.0
 

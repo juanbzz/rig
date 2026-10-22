@@ -18,7 +18,7 @@ tasks:
     desc: Build rig into {{.INSTALL_DIR}}
     cmds:
       - mkdir -p "{{.INSTALL_DIR}}"
-      - go build -trimpath -ldflags "-s -w -X github.com/j0lvera/rig/internal/cli._version={{.VERSION}}" -o "{{.INSTALL_DIR}}/{{.BINARY}}" {{.PKG}}
+      - go build -trimpath -ldflags "-s -w -X github.com/juanbzz/rig/internal/cli._version={{.VERSION}}" -o "{{.INSTALL_DIR}}/{{.BINARY}}" {{.PKG}}
       - '{{.INSTALL_DIR}}/{{.BINARY}} --version'
     sources:
       - '**/*.go'

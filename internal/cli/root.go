@@ -10,19 +10,34 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"runtime/debug"
 
 	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
-	"github.com/j0lvera/rig/internal/config"
-	"github.com/j0lvera/rig/internal/container"
-	"github.com/j0lvera/rig/internal/stack"
-	"github.com/j0lvera/rig/internal/ui"
+	"github.com/juanbzz/rig/internal/config"
+	"github.com/juanbzz/rig/internal/container"
+	"github.com/juanbzz/rig/internal/stack"
+	"github.com/juanbzz/rig/internal/ui"
 )
 
 // _version is overridden at build time via -ldflags.
 var _version = "dev"
+
+// version reports the -ldflags stamp, or the module version when rig was
+// built by `go install module@version`, which sets no ldflags.
+func version() string {
+	if _version != "dev" {
+		return _version
+	}
+
+	if info, ok := debug.ReadBuildInfo(); ok && info.Main.Version != "" && info.Main.Version != "(devel)" {
+		return info.Main.Version
+	}
+
+	return _version
+}
 
 // EngineFactory builds the engine services run on.
 type EngineFactory func(logger zerolog.Logger) stack.Engine
@@ -53,7 +68,7 @@ func (c *CLI) RootCommand() *cobra.Command {
 	root := &cobra.Command{
 		Use:           "rig",
 		Short:         "Disposable app stacks for integration tests",
-		Version:       _version,
+		Version:       version(),
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		Long: `rig reads .rig.toml at the repository root and turns it into a running,

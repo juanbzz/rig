@@ -18,8 +18,8 @@ import (
 	"github.com/matryer/is"
 	"github.com/rs/zerolog"
 
-	"github.com/j0lvera/rig/internal/config"
-	"github.com/j0lvera/rig/internal/stack"
+	"github.com/juanbzz/rig/internal/config"
+	"github.com/juanbzz/rig/internal/stack"
 )
 
 // _helperEnv makes the test binary serve HTTP instead of running tests, so
@@ -93,7 +93,7 @@ func newCLI() *CLI {
 }
 
 // execute runs rig with args and returns its stdout, stderr, and error.
-func execute(ctx context.Context, args ...string) (string, string, error) {
+func execute(ctx context.Context, args ...string) (out, errOut string, err error) {
 	var stdout, stderr syncBuffer
 
 	root := newCLI().RootCommand()
@@ -101,7 +101,7 @@ func execute(ctx context.Context, args ...string) (string, string, error) {
 	root.SetOut(&stdout)
 	root.SetErr(&stderr)
 
-	err := root.ExecuteContext(ctx)
+	err = root.ExecuteContext(ctx)
 
 	return stdout.String(), stderr.String(), err
 }
@@ -316,4 +316,14 @@ func TestSpinner_OnlyOnATerminal(t *testing.T) {
 			i.True(c.spinner(tt.stderr) == nil)
 		})
 	}
+}
+
+func TestVersion_StampWins(t *testing.T) {
+	i := is.New(t)
+
+	orig := _version
+	t.Cleanup(func() { _version = orig })
+
+	_version = "v1.2.3"
+	i.Equal(version(), "v1.2.3")
 }

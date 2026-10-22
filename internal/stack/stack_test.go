@@ -19,7 +19,7 @@ import (
 	"github.com/matryer/is"
 	"github.com/rs/zerolog"
 
-	"github.com/j0lvera/rig/internal/config"
+	"github.com/juanbzz/rig/internal/config"
 )
 
 // _helperEnv makes the test binary act as an app instead of running tests,

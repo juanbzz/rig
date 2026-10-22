@@ -20,7 +20,7 @@ import (
 
 	"github.com/pelletier/go-toml/v2"
 
-	"github.com/j0lvera/rig/internal/tmpl"
+	"github.com/juanbzz/rig/internal/tmpl"
 )
 
 // FileName is the per-repository config file.

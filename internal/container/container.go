@@ -18,8 +18,8 @@ import (
 	tclog "github.com/testcontainers/testcontainers-go/log"
 	"github.com/testcontainers/testcontainers-go/wait"
 
-	"github.com/j0lvera/rig/internal/config"
-	"github.com/j0lvera/rig/internal/stack"
+	"github.com/juanbzz/rig/internal/config"
+	"github.com/juanbzz/rig/internal/stack"
 )
 
 type engine struct {

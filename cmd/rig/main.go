@@ -9,9 +9,9 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/j0lvera/rig/internal/cli"
-	"github.com/j0lvera/rig/internal/config"
-	"github.com/j0lvera/rig/internal/ui"
+	"github.com/juanbzz/rig/internal/cli"
+	"github.com/juanbzz/rig/internal/config"
+	"github.com/juanbzz/rig/internal/ui"
 )
 
 func main() {
